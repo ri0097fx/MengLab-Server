@@ -17,10 +17,6 @@ powershell -ExecutionPolicy Bypass -File ".\setup_windows.ps1"
 menglab
 ```
 
-```powershell
-menglab
-```
-
 ## 直接実行
 
 ```bash
