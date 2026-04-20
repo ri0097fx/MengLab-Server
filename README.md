@@ -15,12 +15,10 @@ powershell -ExecutionPolicy Bypass -File ".\setup_windows.ps1"
 
 ```bash
 menglab
-menglab about/
 ```
 
 ```powershell
 menglab
-menglab about/
 ```
 
 ## 直接実行
