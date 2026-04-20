@@ -31,9 +31,11 @@ function Save-Creds {
     Ensure-CredDir
     $wpUser = Read-Host "WordPress username to save"
     $wpPass = Read-Host "WordPress password to save" -AsSecureString
+    $relayPass = Read-Host "Relay SSH password to save" -AsSecureString
     $obj = [pscustomobject]@{
         WpUser = $wpUser
         WpPass = $wpPass
+        RelayPass = $relayPass
     }
     $obj | Export-Clixml -Path $CredFile
     Write-Host "Saved credentials: $CredFile"
@@ -89,7 +91,21 @@ function Start-Tunnel {
     }
     $args.Add("$RelayUser@$RelayHost")
 
-    # Keep console attached so password prompt can appear when key auth is unavailable.
+    $relayPassPlain = if ($script:relayPass) { $script:relayPass } else { "" }
+    $askPassFile = ""
+    $askPassSecretFile = ""
+    if (-not [string]::IsNullOrEmpty($relayPassPlain)) {
+        $askPassSecretFile = Join-Path $env:TEMP ("wpfetch_askpass_secret_{0}.txt" -f [guid]::NewGuid().ToString("N"))
+        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllText($askPassSecretFile, $relayPassPlain, $utf8NoBom)
+        $askPassFile = Join-Path $env:TEMP ("wpfetch_askpass_{0}.cmd" -f [guid]::NewGuid().ToString("N"))
+        $askpassBody = "@echo off`r`nsetlocal`r`ntype ""{0}""`r`n" -f $askPassSecretFile
+        [System.IO.File]::WriteAllText($askPassFile, $askpassBody, [System.Text.Encoding]::ASCII)
+        $env:SSH_ASKPASS = $askPassFile
+        $env:SSH_ASKPASS_REQUIRE = "force"
+        $env:DISPLAY = "1"
+    }
+
     $p = Start-Process -FilePath "ssh.exe" -ArgumentList $args.ToArray() -PassThru -NoNewWindow
 
     # Wait until local forward port is actually open.
@@ -115,9 +131,24 @@ function Start-Tunnel {
         if (-not $p.HasExited) {
             Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
         }
+        if ($askPassFile -and (Test-Path $askPassFile)) {
+            Remove-Item $askPassFile -Force -ErrorAction SilentlyContinue
+        }
+        if ($askPassSecretFile -and (Test-Path $askPassSecretFile)) {
+            Remove-Item $askPassSecretFile -Force -ErrorAction SilentlyContinue
+        }
+        Remove-Item Env:SSH_ASKPASS, Env:SSH_ASKPASS_REQUIRE, Env:DISPLAY -ErrorAction SilentlyContinue
         $endpoint = "{0}@{1}:{2}" -f $RelayUser, $RelayHost, $RelaySshPort
         throw "Failed to open SSH tunnel. Check auth for $endpoint"
     }
+
+    if ($askPassFile -and (Test-Path $askPassFile)) {
+        Remove-Item $askPassFile -Force -ErrorAction SilentlyContinue
+    }
+    if ($askPassSecretFile -and (Test-Path $askPassSecretFile)) {
+        Remove-Item $askPassSecretFile -Force -ErrorAction SilentlyContinue
+    }
+    Remove-Item Env:SSH_ASKPASS, Env:SSH_ASKPASS_REQUIRE, Env:DISPLAY -ErrorAction SilentlyContinue
 
     if ($p.HasExited) {
         $endpoint = "{0}@{1}:{2}" -f $RelayUser, $RelayHost, $RelaySshPort
@@ -143,6 +174,14 @@ if ($Command -eq "reset") {
 $creds = Load-Creds
 $wpUser = $creds.WpUser
 $wpPassPlain = SecureToPlain $creds.WpPass
+$relayPass = ""
+if ($creds.PSObject.Properties.Name -contains "RelayPass" -and $creds.RelayPass) {
+    $relayPass = SecureToPlain $creds.RelayPass
+}
+if ([string]::IsNullOrEmpty($relayPass)) {
+    $relayPassSecure = Read-Host "Relay SSH password" -AsSecureString
+    $relayPass = SecureToPlain $relayPassSecure
+}
 
 $cookieFile = [System.IO.Path]::GetTempFileName()
 $tunnelProc = $null
