@@ -90,7 +90,8 @@ function Start-Tunnel {
     $p = Start-Process -FilePath "ssh.exe" -ArgumentList $args -PassThru -WindowStyle Hidden
     Start-Sleep -Milliseconds 800
     if ($p.HasExited) {
-        throw "Failed to open SSH tunnel. Check key auth to $RelayUser@$RelayHost:$RelaySshPort"
+        $endpoint = "{0}@{1}:{2}" -f $RelayUser, $RelayHost, $RelaySshPort
+        throw "Failed to open SSH tunnel. Check key auth to $endpoint"
     }
     return $p
 }
