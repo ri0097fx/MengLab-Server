@@ -161,6 +161,20 @@ function Invoke-Curl([string[]]$CurlArgs) {
     return $result
 }
 
+function Get-CookieHeaderFromNetscapeFile([string]$Path) {
+    if (-not (Test-Path $Path)) { return "" }
+    $pairs = New-Object System.Collections.Generic.List[string]
+    foreach ($line in Get-Content -Path $Path) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        if ($line.StartsWith("#") -and -not $line.StartsWith("#HttpOnly_")) { continue }
+        $parts = $line -split "`t"
+        if ($parts.Count -ge 7) {
+            $pairs.Add(("{0}={1}" -f $parts[5], $parts[6]))
+        }
+    }
+    return ($pairs -join "; ")
+}
+
 if ($Command -eq "setup") {
     Save-Creds
     exit 0
@@ -184,6 +198,7 @@ if ([string]::IsNullOrEmpty($relayPass)) {
 
 $cookieFile = [System.IO.Path]::GetTempFileName()
 $tunnelProc = $null
+$previewJob = $null
 
 try {
     Write-Host "[1/3] Opening tunnel..."
@@ -212,17 +227,107 @@ try {
     }
 
     if ($Command -eq "preview") {
-        # Quick preview for Windows: rewrite absolute origin and open local file.
-        $rewritten = $html.Replace($WpUpstreamOrigin, "http://127.0.0.1:$LocalForwardPort")
-        $previewFile = Join-Path $env:TEMP "wpfetch_preview_$env:USERNAME.html"
-        [System.IO.File]::WriteAllText($previewFile, $rewritten, [System.Text.Encoding]::UTF8)
-        Write-Host "Preview file: $previewFile"
-        Start-Process $previewFile | Out-Null
+        $previewPort = if ($env:WPFETCH_PREVIEW_PORT) { [int]$env:WPFETCH_PREVIEW_PORT } else { 18781 }
+        $initialPath = if ([string]::IsNullOrWhiteSpace($PagePath)) {
+            $WpBasePath
+        } else {
+            ("{0}/{1}" -f $WpBasePath.TrimEnd("/"), $PagePath.TrimStart("/"))
+        }
+        if (-not $initialPath.StartsWith("/")) { $initialPath = "/$initialPath" }
+        $previewOrigin = "http://127.0.0.1:$previewPort"
+        $previewUrl = "$previewOrigin$initialPath"
+        $cookieHeader = Get-CookieHeaderFromNetscapeFile $cookieFile
+
+        $proxyScript = {
+            param($PreviewPort, $LocalForwardPort, $CookieHeader, $UpstreamOrigin, $InitialPath)
+            $previewOrigin = "http://127.0.0.1:$PreviewPort"
+            $forwardOrigin = "http://127.0.0.1:$LocalForwardPort"
+            $listener = New-Object System.Net.HttpListener
+            $listener.Prefixes.Add("$previewOrigin/")
+            $listener.Start()
+            try {
+                while ($listener.IsListening) {
+                    $ctx = $listener.GetContext()
+                    $rawPath = $ctx.Request.RawUrl
+                    if ([string]::IsNullOrWhiteSpace($rawPath) -or $rawPath -eq "/") {
+                        $rawPath = $InitialPath
+                    }
+                    if (-not $rawPath.StartsWith("/")) { $rawPath = "/$rawPath" }
+                    $targetUrl = "$forwardOrigin$rawPath"
+
+                    try {
+                        $req = [System.Net.HttpWebRequest]::Create($targetUrl)
+                        $req.Method = $ctx.Request.HttpMethod
+                        $req.AllowAutoRedirect = $false
+                        $req.UserAgent = "wpfetch-preview-ps"
+                        if (-not [string]::IsNullOrWhiteSpace($CookieHeader)) {
+                            $req.Headers["Cookie"] = $CookieHeader
+                        }
+                        if ($ctx.Request.ContentLength64 -gt 0) {
+                            $out = $req.GetRequestStream()
+                            try { $ctx.Request.InputStream.CopyTo($out) } finally { $out.Close() }
+                        }
+
+                        try {
+                            $resp = [System.Net.HttpWebResponse]$req.GetResponse()
+                        } catch [System.Net.WebException] {
+                            if ($_.Exception.Response) {
+                                $resp = [System.Net.HttpWebResponse]$_.Exception.Response
+                            } else {
+                                throw
+                            }
+                        }
+
+                        $ctx.Response.StatusCode = [int]$resp.StatusCode
+                        foreach ($key in $resp.Headers.AllKeys) {
+                            if ($key -in @("Transfer-Encoding", "Content-Length", "Connection", "Keep-Alive")) { continue }
+                            $value = $resp.Headers[$key]
+                            if ($key -eq "Location") {
+                                $value = $value.Replace($UpstreamOrigin, $previewOrigin).Replace($forwardOrigin, $previewOrigin)
+                            }
+                            $ctx.Response.Headers[$key] = $value
+                        }
+                        $stream = $resp.GetResponseStream()
+                        $ms = New-Object System.IO.MemoryStream
+                        try {
+                            $stream.CopyTo($ms)
+                            $bytes = $ms.ToArray()
+                            $ctx.Response.ContentLength64 = $bytes.Length
+                            $ctx.Response.OutputStream.Write($bytes, 0, $bytes.Length)
+                        } finally {
+                            $stream.Close()
+                            $ms.Close()
+                            $resp.Close()
+                        }
+                    } catch {
+                        $body = [System.Text.Encoding]::UTF8.GetBytes("proxy error")
+                        $ctx.Response.StatusCode = 502
+                        $ctx.Response.ContentType = "text/plain; charset=utf-8"
+                        $ctx.Response.ContentLength64 = $body.Length
+                        $ctx.Response.OutputStream.Write($body, 0, $body.Length)
+                    } finally {
+                        $ctx.Response.OutputStream.Close()
+                    }
+                }
+            } finally {
+                $listener.Stop()
+                $listener.Close()
+            }
+        }
+
+        $previewJob = Start-Job -ScriptBlock $proxyScript -ArgumentList @($previewPort, $LocalForwardPort, $cookieHeader, $WpUpstreamOrigin, $initialPath)
+        Start-Sleep -Milliseconds 700
+        Write-Host "Preview URL: $previewUrl"
+        Start-Process $previewUrl | Out-Null
         Write-Host "Press Enter to close tunnel..."
         [void][System.Console]::ReadLine()
     }
 }
 finally {
+    if ($previewJob) {
+        Stop-Job -Job $previewJob -ErrorAction SilentlyContinue | Out-Null
+        Remove-Job -Job $previewJob -Force -ErrorAction SilentlyContinue | Out-Null
+    }
     if ($tunnelProc -and -not $tunnelProc.HasExited) {
         Stop-Process -Id $tunnelProc.Id -Force -ErrorAction SilentlyContinue
     }
