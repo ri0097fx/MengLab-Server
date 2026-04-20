@@ -8,7 +8,7 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Core = Join-Path $ScriptDir "wpfetch_relay.ps1"
 
 if (-not (Test-Path $Core)) {
-    throw "wpfetch_relay.ps1 が見つかりません: $Core"
+    throw "Missing file: $Core"
 }
 
 if (-not $ArgsList -or $ArgsList.Count -eq 0) {
@@ -22,6 +22,6 @@ if ($first -in @("setup", "reset", "fetch", "preview")) {
     exit $LASTEXITCODE
 }
 
-# 先頭がパス指定なら preview とみなす
+# Treat first arg as preview path
 & $Core preview @ArgsList
 exit $LASTEXITCODE
