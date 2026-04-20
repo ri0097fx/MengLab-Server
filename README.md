@@ -3,14 +3,27 @@
 ## セットアップ
 
 ```bash
-./wpfetch_relay.sh setup
+chmod +x ./setup_unix.sh
+./setup_unix.sh
 ```
 
 ```powershell
-.\wpfetch_relay.ps1 setup
+powershell -ExecutionPolicy Bypass -File ".\setup_windows.ps1"
 ```
 
 ## 実行
+
+```bash
+menglab
+menglab about/
+```
+
+```powershell
+menglab
+menglab about/
+```
+
+## 直接実行
 
 ```bash
 ./wpfetch_relay.sh preview
@@ -22,20 +35,4 @@
 .\wpfetch_relay.ps1 preview
 .\wpfetch_relay.ps1 fetch
 .\wpfetch_relay.ps1 reset
-```
-
-## `menglab` コマンド導入（任意）
-
-```bash
-chmod +x ./install_menglab_unix.sh
-./install_menglab_unix.sh
-```
-
-```powershell
-powershell -ExecutionPolicy Bypass -File ".\install_menglab_windows.ps1"
-```
-
-```bash
-menglab
-menglab about/
 ```
