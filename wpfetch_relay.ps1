@@ -71,8 +71,7 @@ function Start-Tunnel {
         throw "ssh.exe not found. Install OpenSSH Client."
     }
     
-    $args = [System.Collections.Generic.List[string]]::new()
-    $args.AddRange(@(
+    $sshArgs = @(
         "-N",
         "-p", "$RelaySshPort",
         "-L", "127.0.0.1:$LocalForwardPort`:127.0.0.1:$RemoteReversePort",
@@ -81,15 +80,15 @@ function Start-Tunnel {
         "-o", "ServerAliveCountMax=3",
         "-o", "StrictHostKeyChecking=yes",
         "-o", "PreferredAuthentications=publickey,password"
-    ))
+    )
 
     if (Test-Path $RelaySshKey) {
-        $args.Add("-o")
-        $args.Add("IdentitiesOnly=yes")
-        $args.Add("-i")
-        $args.Add($RelaySshKey)
+        $sshArgs += @(
+            "-o", "IdentitiesOnly=yes",
+            "-i", $RelaySshKey
+        )
     }
-    $args.Add("$RelayUser@$RelayHost")
+    $sshArgs += "$RelayUser@$RelayHost"
 
     $relayPassPlain = if ($script:relayPass) { $script:relayPass } else { "" }
     $askPassFile = ""
@@ -106,7 +105,7 @@ function Start-Tunnel {
         $env:DISPLAY = "1"
     }
 
-    $p = Start-Process -FilePath "ssh.exe" -ArgumentList $args.ToArray() -PassThru -NoNewWindow
+    $p = Start-Process -FilePath "ssh.exe" -ArgumentList $sshArgs -PassThru -NoNewWindow
 
     # Wait until local forward port is actually open.
     $ready = $false

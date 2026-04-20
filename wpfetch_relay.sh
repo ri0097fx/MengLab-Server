@@ -337,7 +337,7 @@ LOGIN_EFFECTIVE_URL="$(curl -sS --fail --location \
 
 if [[ "${LOGIN_EFFECTIVE_URL}" == *"wp-login.php"* ]] || ! grep -q "wordpress_logged_in" "${COOKIE_FILE}"; then
   echo "ERROR: WordPress login failed (still on login page or no auth cookie)."
-  echo "Check saved credentials with: ~/Desktop/wpfetch_relay.sh setup"
+  echo "Check saved credentials with: ./wpfetch_relay.sh setup (or: menglab setup)"
   exit 1
 fi
 
