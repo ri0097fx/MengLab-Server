@@ -1,0 +1,162 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "WPFetch: Setup Credentials",
+      "type": "shell",
+      "osx": {
+        "command": "bash",
+        "args": [
+          "-lc",
+          "\"${workspaceFolder}/wpfetch_relay.sh\" setup"
+        ]
+      },
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-lc",
+          "\"${workspaceFolder}/wpfetch_relay.sh\" setup"
+        ]
+      },
+      "windows": {
+        "command": "powershell",
+        "args": [
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "${workspaceFolder}\\wpfetch_relay.ps1",
+          "setup"
+        ]
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "WPFetch: Fetch Top Page",
+      "type": "shell",
+      "osx": {
+        "command": "bash",
+        "args": [
+          "-lc",
+          "\"${workspaceFolder}/wpfetch_relay.sh\" fetch"
+        ]
+      },
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-lc",
+          "\"${workspaceFolder}/wpfetch_relay.sh\" fetch"
+        ]
+      },
+      "windows": {
+        "command": "powershell",
+        "args": [
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "${workspaceFolder}\\wpfetch_relay.ps1",
+          "fetch"
+        ]
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "WPFetch: Preview Top Page",
+      "type": "shell",
+      "osx": {
+        "command": "bash",
+        "args": [
+          "-lc",
+          "\"${workspaceFolder}/wpfetch_relay.sh\" preview"
+        ]
+      },
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-lc",
+          "\"${workspaceFolder}/wpfetch_relay.sh\" preview"
+        ]
+      },
+      "windows": {
+        "command": "powershell",
+        "args": [
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "${workspaceFolder}\\wpfetch_relay.ps1",
+          "preview"
+        ]
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "WPFetch: Preview Custom Path",
+      "type": "shell",
+      "options": {
+        "env": {
+          "WPFETCH_CUSTOM_PATH": "${input:wpfetchPath}"
+        }
+      },
+      "osx": {
+        "command": "bash",
+        "args": [
+          "-lc",
+          "\"${workspaceFolder}/wpfetch_relay.sh\" preview \"$WPFETCH_CUSTOM_PATH\""
+        ]
+      },
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-lc",
+          "\"${workspaceFolder}/wpfetch_relay.sh\" preview \"$WPFETCH_CUSTOM_PATH\""
+        ]
+      },
+      "windows": {
+        "command": "powershell",
+        "args": [
+          "-ExecutionPolicy",
+          "Bypass",
+          "-Command",
+          "& \"${workspaceFolder}\\wpfetch_relay.ps1\" preview \"${input:wpfetchPath}\""
+        ]
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "WPFetch: Reset Saved Credentials",
+      "type": "shell",
+      "osx": {
+        "command": "bash",
+        "args": [
+          "-lc",
+          "\"${workspaceFolder}/wpfetch_relay.sh\" reset"
+        ]
+      },
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-lc",
+          "\"${workspaceFolder}/wpfetch_relay.sh\" reset"
+        ]
+      },
+      "windows": {
+        "command": "powershell",
+        "args": [
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "${workspaceFolder}\\wpfetch_relay.ps1",
+          "reset"
+        ]
+      },
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "wpfetchPath",
+      "type": "promptString",
+      "description": "例: about/  (空欄ならトップページ)",
+      "default": ""
+    }
+  ]
+}

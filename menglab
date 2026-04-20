@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CORE="${SCRIPT_DIR}/wpfetch_relay.sh"
+
+if [[ ! -x "${CORE}" ]]; then
+  echo "ERROR: ${CORE} が見つからないか、実行権限がありません。"
+  exit 1
+fi
+
+if [[ $# -eq 0 ]]; then
+  exec "${CORE}" preview
+fi
+
+case "${1}" in
+  setup|reset|fetch|preview)
+    exec "${CORE}" "$@"
+    ;;
+  *)
+    exec "${CORE}" preview "$@"
+    ;;
+esac

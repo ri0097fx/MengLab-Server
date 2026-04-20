@@ -1,0 +1,113 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "WPFetch: Setup Credentials (macOS/Linux)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "bash -lc '\"${workspaceFolder}/wpfetch_relay.sh\" setup'",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "name": "WPFetch: Fetch Top Page (macOS/Linux)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "bash -lc '\"${workspaceFolder}/wpfetch_relay.sh\" fetch'",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "name": "WPFetch: Preview Top Page (macOS/Linux)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "bash -lc '\"${workspaceFolder}/wpfetch_relay.sh\" preview'",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "name": "WPFetch: Preview Custom Path (macOS/Linux)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "bash -lc '\"${workspaceFolder}/wpfetch_relay.sh\" preview \"${input:wpfetchPath}\"'",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "name": "WPFetch: Reset Credentials (macOS/Linux)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "bash -lc '\"${workspaceFolder}/wpfetch_relay.sh\" reset'",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "name": "WPFetch: Setup Credentials (Windows)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "powershell -ExecutionPolicy Bypass -File \"${workspaceFolder}\\wpfetch_relay.ps1\" setup",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "name": "WPFetch: Fetch Top Page (Windows)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "powershell -ExecutionPolicy Bypass -File \"${workspaceFolder}\\wpfetch_relay.ps1\" fetch",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "name": "WPFetch: Preview Top Page (Windows)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "powershell -ExecutionPolicy Bypass -File \"${workspaceFolder}\\wpfetch_relay.ps1\" preview",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "name": "WPFetch: Preview Custom Path (Windows)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "powershell -ExecutionPolicy Bypass -Command \"& '${workspaceFolder}\\wpfetch_relay.ps1' preview '${input:wpfetchPath}'\"",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "name": "WPFetch: Reset Credentials (Windows)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "powershell -ExecutionPolicy Bypass -File \"${workspaceFolder}\\wpfetch_relay.ps1\" reset",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "wpfetchPath",
+      "type": "promptString",
+      "description": "例: about/  (空欄ならトップページ)",
+      "default": ""
+    }
+  ]
+}
