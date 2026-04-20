@@ -68,11 +68,9 @@ function Start-Tunnel {
     if (-not (Get-Command ssh.exe -ErrorAction SilentlyContinue)) {
         throw "ssh.exe not found. Install OpenSSH Client."
     }
-    if (-not (Test-Path $RelaySshKey)) {
-        throw "SSH key not found: $RelaySshKey"
-    }
-
-    $args = @(
+    
+    $args = [System.Collections.Generic.List[string]]::new()
+    $args.AddRange(@(
         "-N",
         "-p", "$RelaySshPort",
         "-L", "127.0.0.1:$LocalForwardPort`:127.0.0.1:$RemoteReversePort",
@@ -80,18 +78,50 @@ function Start-Tunnel {
         "-o", "ServerAliveInterval=30",
         "-o", "ServerAliveCountMax=3",
         "-o", "StrictHostKeyChecking=yes",
-        "-o", "BatchMode=yes",
-        "-o", "PreferredAuthentications=publickey",
-        "-o", "IdentitiesOnly=yes",
-        "-i", $RelaySshKey,
-        "$RelayUser@$RelayHost"
-    )
+        "-o", "PreferredAuthentications=publickey,password"
+    ))
 
-    $p = Start-Process -FilePath "ssh.exe" -ArgumentList $args -PassThru -WindowStyle Hidden
-    Start-Sleep -Milliseconds 800
+    if (Test-Path $RelaySshKey) {
+        $args.Add("-o")
+        $args.Add("IdentitiesOnly=yes")
+        $args.Add("-i")
+        $args.Add($RelaySshKey)
+    }
+    $args.Add("$RelayUser@$RelayHost")
+
+    # Keep console attached so password prompt can appear when key auth is unavailable.
+    $p = Start-Process -FilePath "ssh.exe" -ArgumentList $args.ToArray() -PassThru -NoNewWindow
+
+    # Wait until local forward port is actually open.
+    $ready = $false
+    for ($i = 0; $i -lt 240; $i++) {
+        if ($p.HasExited) { break }
+        try {
+            $tcp = New-Object System.Net.Sockets.TcpClient
+            $iar = $tcp.BeginConnect("127.0.0.1", $LocalForwardPort, $null, $null)
+            if ($iar.AsyncWaitHandle.WaitOne(200)) {
+                $tcp.EndConnect($iar)
+                $ready = $true
+                $tcp.Close()
+                break
+            }
+            $tcp.Close()
+        } catch {
+        }
+        Start-Sleep -Milliseconds 500
+    }
+
+    if (-not $ready) {
+        if (-not $p.HasExited) {
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+        }
+        $endpoint = "{0}@{1}:{2}" -f $RelayUser, $RelayHost, $RelaySshPort
+        throw "Failed to open SSH tunnel. Check auth for $endpoint"
+    }
+
     if ($p.HasExited) {
         $endpoint = "{0}@{1}:{2}" -f $RelayUser, $RelayHost, $RelaySshPort
-        throw "Failed to open SSH tunnel. Check key auth to $endpoint"
+        throw "Failed to open SSH tunnel. Check auth for $endpoint"
     }
     return $p
 }
