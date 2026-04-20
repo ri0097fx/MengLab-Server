@@ -202,9 +202,11 @@ try {
     }
 
     Write-Host "[3/3] Fetching..."
-    $html = Invoke-Curl @("-sS", "--fail", "-c", $cookieFile, "-b", $cookieFile, $targetUrl)
-    if ($html -match "<title>(.*?)</title>") {
-        Write-Host "Title: $($matches[1])"
+    $htmlRaw = Invoke-Curl @("-sS", "--fail", "-c", $cookieFile, "-b", $cookieFile, $targetUrl)
+    $html = if ($htmlRaw -is [array]) { ($htmlRaw -join "`n") } else { [string]$htmlRaw }
+    $titleMatch = [regex]::Match($html, "<title>(.*?)</title>", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if ($titleMatch.Success) {
+        Write-Host ("Title: {0}" -f $titleMatch.Groups[1].Value)
     } else {
         Write-Host "Title not found. URL: $targetUrl"
     }
