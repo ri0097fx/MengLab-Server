@@ -51,10 +51,9 @@ COOKIE_FILE="$(mktemp)"
 ASKPASS_SCRIPT=""
 BACKEND=""
 
-# encrypted-file fallback (works on any OS with openssl)
+# Legacy credential files (removed on reset when using insecure old paths)
 ENC_DIR="${HOME}/.config/wpfetch"
-# Plaintext store with strict permissions (no master password). Legacy encrypted file removed on reset.
-PLAIN_CREDS_FILE="${ENC_DIR}/credentials.env"
+LEGACY_PLAIN_FILE="${ENC_DIR}/credentials.env"
 LEGACY_ENC_FILE="${ENC_DIR}/credentials.enc"
 
 has_cmd() {
@@ -64,9 +63,11 @@ has_cmd() {
 detect_backend() {
   if [[ -n "${WPFETCH_CRED_BACKEND:-}" ]]; then
     BACKEND="${WPFETCH_CRED_BACKEND}"
-    if [[ "${BACKEND}" == "encrypted_file" ]]; then
-      BACKEND="plain_file"
-    fi
+    case "${BACKEND}" in
+      plain_file | encrypted_file)
+        BACKEND="none"
+        ;;
+    esac
     return
   fi
 
@@ -76,7 +77,7 @@ detect_backend() {
       if has_cmd secret-tool; then
         BACKEND="linux_secret_tool"
       else
-        BACKEND="plain_file"
+        BACKEND="none"
       fi
       ;;
   esac
@@ -116,34 +117,6 @@ kc_linux_delete() {
   fi
 }
 
-plainfile_get_value() {
-  local key="$1"
-  local line
-  if [[ ! -f "${PLAIN_CREDS_FILE}" ]]; then
-    return 1
-  fi
-  line="$(grep "^${key}=" "${PLAIN_CREDS_FILE}" 2>/dev/null | head -n1)" || return 1
-  printf '%s\n' "${line#${key}=}"
-}
-
-plainfile_set_all() {
-  local wp_user="$1"
-  local wp_pass="$2"
-  local relay_pass="$3"
-  mkdir -p "${ENC_DIR}"
-  chmod 700 "${ENC_DIR}"
-  {
-    printf 'WP_USER=%s\n' "${wp_user}"
-    printf 'WP_PASS=%s\n' "${wp_pass}"
-    printf 'RELAY_PASS=%s\n' "${relay_pass}"
-  } >"${PLAIN_CREDS_FILE}"
-  chmod 600 "${PLAIN_CREDS_FILE}"
-}
-
-plainfile_delete() {
-  rm -f "${PLAIN_CREDS_FILE}" "${LEGACY_ENC_FILE}"
-}
-
 cred_get() {
   local key="$1"
   case "${BACKEND}" in
@@ -161,8 +134,8 @@ cred_get() {
         RELAY_PASS) kc_linux_get "${KC_RELAY_PASS_SERVICE}" ;;
       esac
       ;;
-    plain_file)
-      plainfile_get_value "${key}"
+    none)
+      return 1
       ;;
   esac
 }
@@ -183,8 +156,11 @@ cred_set_all() {
       kc_linux_set "${KC_WP_PASS_SERVICE}" "${wp_pass}"
       kc_linux_set "${KC_RELAY_PASS_SERVICE}" "${relay_pass}"
       ;;
-    plain_file)
-      plainfile_set_all "${wp_user}" "${wp_pass}" "${relay_pass}"
+    none)
+      echo "ERROR: No secure credential store (macOS Keychain or Linux secret-tool)." >&2
+      echo "  Debian/Ubuntu: sudo apt install libsecret-tools" >&2
+      echo "  Or omit setup: credentials are prompted each run." >&2
+      exit 1
       ;;
   esac
 }
@@ -201,8 +177,8 @@ cred_reset() {
       kc_linux_delete "${KC_WP_PASS_SERVICE}"
       kc_linux_delete "${KC_RELAY_PASS_SERVICE}"
       ;;
-    plain_file)
-      plainfile_delete
+    none)
+      rm -f "${LEGACY_PLAIN_FILE}" "${LEGACY_ENC_FILE}"
       ;;
   esac
 }
