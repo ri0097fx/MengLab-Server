@@ -53,7 +53,9 @@ BACKEND=""
 
 # encrypted-file fallback (works on any OS with openssl)
 ENC_DIR="${HOME}/.config/wpfetch"
-ENC_FILE="${ENC_DIR}/credentials.enc"
+# Plaintext store with strict permissions (no master password). Legacy encrypted file removed on reset.
+PLAIN_CREDS_FILE="${ENC_DIR}/credentials.env"
+LEGACY_ENC_FILE="${ENC_DIR}/credentials.enc"
 
 has_cmd() {
   command -v "$1" >/dev/null 2>&1
@@ -62,6 +64,9 @@ has_cmd() {
 detect_backend() {
   if [[ -n "${WPFETCH_CRED_BACKEND:-}" ]]; then
     BACKEND="${WPFETCH_CRED_BACKEND}"
+    if [[ "${BACKEND}" == "encrypted_file" ]]; then
+      BACKEND="plain_file"
+    fi
     return
   fi
 
@@ -71,7 +76,7 @@ detect_backend() {
       if has_cmd secret-tool; then
         BACKEND="linux_secret_tool"
       else
-        BACKEND="encrypted_file"
+        BACKEND="plain_file"
       fi
       ;;
   esac
@@ -111,40 +116,32 @@ kc_linux_delete() {
   fi
 }
 
-encfile_decrypt() {
-  local master="$1"
-  openssl enc -d -aes-256-cbc -pbkdf2 -salt -in "${ENC_FILE}" -pass "pass:${master}" 2>/dev/null
-}
-
-encfile_get_value() {
+plainfile_get_value() {
   local key="$1"
-  local master="$2"
-  local data
-  data="$(encfile_decrypt "${master}" || true)"
-  if [[ -z "${data}" ]]; then
+  local line
+  if [[ ! -f "${PLAIN_CREDS_FILE}" ]]; then
     return 1
   fi
-  printf '%s\n' "${data}" | awk -F= -v k="${key}" '$1==k {sub($1"=",""); print; exit}'
+  line="$(grep "^${key}=" "${PLAIN_CREDS_FILE}" 2>/dev/null | head -n1)" || return 1
+  printf '%s\n' "${line#${key}=}"
 }
 
-encfile_set_all() {
+plainfile_set_all() {
   local wp_user="$1"
   local wp_pass="$2"
   local relay_pass="$3"
-  local master="$4"
-
   mkdir -p "${ENC_DIR}"
   chmod 700 "${ENC_DIR}"
   {
     printf 'WP_USER=%s\n' "${wp_user}"
     printf 'WP_PASS=%s\n' "${wp_pass}"
     printf 'RELAY_PASS=%s\n' "${relay_pass}"
-  } | openssl enc -aes-256-cbc -pbkdf2 -salt -out "${ENC_FILE}" -pass "pass:${master}"
-  chmod 600 "${ENC_FILE}"
+  } >"${PLAIN_CREDS_FILE}"
+  chmod 600 "${PLAIN_CREDS_FILE}"
 }
 
-encfile_delete() {
-  rm -f "${ENC_FILE}"
+plainfile_delete() {
+  rm -f "${PLAIN_CREDS_FILE}" "${LEGACY_ENC_FILE}"
 }
 
 cred_get() {
@@ -164,12 +161,8 @@ cred_get() {
         RELAY_PASS) kc_linux_get "${KC_RELAY_PASS_SERVICE}" ;;
       esac
       ;;
-    encrypted_file)
-      if [[ -z "${WPFETCH_MASTER_PASS:-}" ]]; then
-        read -r -s -p "Master password for local credential file: " WPFETCH_MASTER_PASS
-        echo
-      fi
-      encfile_get_value "${key}" "${WPFETCH_MASTER_PASS}"
+    plain_file)
+      plainfile_get_value "${key}"
       ;;
   esac
 }
@@ -190,17 +183,8 @@ cred_set_all() {
       kc_linux_set "${KC_WP_PASS_SERVICE}" "${wp_pass}"
       kc_linux_set "${KC_RELAY_PASS_SERVICE}" "${relay_pass}"
       ;;
-    encrypted_file)
-      local master1 master2
-      read -r -s -p "Set master password for local credential file: " master1
-      echo
-      read -r -s -p "Confirm master password: " master2
-      echo
-      if [[ "${master1}" != "${master2}" ]]; then
-        echo "ERROR: master passwords do not match."
-        exit 1
-      fi
-      encfile_set_all "${wp_user}" "${wp_pass}" "${relay_pass}" "${master1}"
+    plain_file)
+      plainfile_set_all "${wp_user}" "${wp_pass}" "${relay_pass}"
       ;;
   esac
 }
@@ -217,8 +201,8 @@ cred_reset() {
       kc_linux_delete "${KC_WP_PASS_SERVICE}"
       kc_linux_delete "${KC_RELAY_PASS_SERVICE}"
       ;;
-    encrypted_file)
-      encfile_delete
+    plain_file)
+      plainfile_delete
       ;;
   esac
 }
