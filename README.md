@@ -30,3 +30,4 @@ powershell -ExecutionPolicy Bypass -File ".\setup_windows.ps1"
 ```bash
 menglab
 ```
+
