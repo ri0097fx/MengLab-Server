@@ -78,7 +78,8 @@ function Start-Tunnel {
         "-o", "ExitOnForwardFailure=yes",
         "-o", "ServerAliveInterval=30",
         "-o", "ServerAliveCountMax=3",
-        "-o", "StrictHostKeyChecking=yes",
+        # Auto-add host key only on first contact; keep checking afterward.
+        "-o", "StrictHostKeyChecking=accept-new",
         "-o", "PreferredAuthentications=publickey,password"
     )
 
