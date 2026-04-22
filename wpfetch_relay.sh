@@ -244,6 +244,7 @@ printf '%s\n' '${RELAY_PASS}'
 EOF
 
   env SSH_ASKPASS="${ASKPASS_SCRIPT}" SSH_ASKPASS_REQUIRE=force DISPLAY="${DISPLAY:-wpfetch}" ssh -fN -M -S "${CONTROL_SOCK}" \
+    -o StrictHostKeyChecking=accept-new \
     -o PreferredAuthentications=password \
     -o PubkeyAuthentication=no \
     -o NumberOfPasswordPrompts=1 \
@@ -253,6 +254,7 @@ EOF
 else
   echo "SSH password for ${RELAY_USER}@${RELAY_HOST} will be prompted."
   ssh -fN -M -S "${CONTROL_SOCK}" \
+  -o StrictHostKeyChecking=accept-new \
   -o PreferredAuthentications=password \
   -o PubkeyAuthentication=no \
   -o NumberOfPasswordPrompts=1 \
